@@ -30,13 +30,13 @@ class FusionModel(nn.Module):
         self.image_model.head = nn.Identity() # Remove classification head
         
         self.clinical_model = ClinicalModel(input_size=clinical_input_size, hidden_sizes=[64, 32, 16], feature_vector_size=16)
-        self.clinical_model.load_state_dict(torch.load(clinical_model_weights))
+        self.clinical_model.load_state_dict(torch.load(clinical_model_weights, weights_only=True))
         
-        # Freeze the backbones
+        # Fine-tuning: Unfreeze the backbones to allow them to be trained
         for param in self.image_model.parameters():
-            param.requires_grad = False
+            param.requires_grad = True
         for param in self.clinical_model.parameters():
-            param.requires_grad = False
+            param.requires_grad = True
             
         # Determine the size of the concatenated feature vector
         clinical_feature_size = 16

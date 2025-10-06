@@ -1,164 +1,78 @@
-# Stroke-Vs: Multimodal Stroke Classification System
+# Stroke Classification using Vision Transformer
 
-This project provides a deep learning framework for classifying stroke types using a multimodal approach. It integrates MRI scans and clinical tabular data to provide a more accurate diagnosis than a single modality alone. The system is built with PyTorch and includes a user-friendly web interface created with Gradio.
+This project implements a deep learning-based system to classify stroke types from brain MRI scans. It utilizes a fine-tuned Vision Transformer (ViT) model to achieve high-accuracy classification between Hemorrhagic, Ischemic, and Normal cases.
 
----
+The final model achieves a validation accuracy of **99.19%**.
 
-## Table of Contents
-- [Project Overview](#project-overview)
-- [Features](#features)
-- [System Architecture](#system-architecture)
-- [Model Performance](#model-performance)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-- [Usage](#usage)
-  - [Data Structure](#data-structure)
-  - [Training the Models](#training-the-models)
-  - [Running the Prediction App](#running-the-prediction-app)
-- [File Structure](#file-structure)
-- [Contributing](#contributing)
-- [License](#license)
-
----
-
-## Project Overview
-
-The goal of this project is to leverage the power of multimodal data for better stroke diagnosis. While MRI scans provide critical visual information, clinical data (like age, gender, BMI, etc.) offers essential context. This system uses a fusion model that combines features extracted from both data types to make a final classification among 'Ischemic', 'Haemorrhagic', and 'Normal' cases.
-
-The initial scope included EEG data, but it was found to be unsuitable for the task due to a lack of event annotations in the available dataset. The project successfully pivoted to a bimodal (MRI + Clinical) approach.
+The project includes a user-friendly web interface built with Gradio for easy interaction and prediction.
 
 ## Features
 
-- **Bimodal Fusion Model**: Combines a Vision Transformer (ViT) for image analysis and a Multi-Layer Perceptron (MLP) for clinical data.
-- **Data Preprocessing**: Robust pipelines for both image and clinical data, ensuring consistency between training and inference.
-- **Modular Training Scripts**: Separate scripts for training the individual and fusion models.
-- **Interactive Web UI**: A simple and intuitive Gradio application for easy prediction on new patient data.
-- **Version Controlled**: The entire source code is managed with Git and available on GitHub.
+- **High-Accuracy Model**: A Vision Transformer (`vit_base_patch16_224`) fine-tuned on a dataset of brain MRI scans.
+- **Three-Class Classification**: Distinguishes between Hemorrhagic stroke, Ischemic stroke, and Normal brain scans.
+- **Interactive Web UI**: A simple and intuitive interface powered by Gradio to upload an MRI scan and get an instant prediction.
+- **GPU Accelerated**: The training and prediction processes are optimized to run on NVIDIA GPUs using PyTorch with CUDA.
 
-## System Architecture
+## Project Structure
 
-The system is composed of three main models:
-
-1.  **Image Model**: A pre-trained Vision Transformer (`timm/vit_base_patch16_224`) is used as a feature extractor for the MRI scans. It is fine-tuned on the stroke image dataset.
-2.  **Clinical Model**: A custom MLP is trained on the tabular clinical data. It processes features like age, gender, BMI, and smoking status after appropriate scaling and encoding.
-3.  **Fusion Model**: The core of the system. It takes the feature vectors from the frozen backbones of the image and clinical models, concatenates them, and passes them through a new classification head to produce the final prediction.
-
-## Model Performance
-
-The bimodal fusion model was trained for 10 epochs and achieved a final validation accuracy of approximately **88.6%**. The training progress shows a steady improvement and stable convergence.
-
-![Model Accuracy Chart](assets/accuracy_chart.png)
+```
+.
+├── MRI_DATA/               # Contains the dataset
+├── src/
+│   ├── prediction/
+│   │   └── predict_image_only.py   # Prediction logic
+│   └── training/
+│       └── train_image_model_standalone.py # Model training script
+├── app.py                  # The Gradio web application
+├── requirements.txt        # Python dependencies
+└── image_only_model_weights.pth # Trained model weights
+```
 
 ## Getting Started
 
-Follow these instructions to set up and run the project on your local machine.
-
 ### Prerequisites
 
-- Python 3.10 or higher
+- Python 3.8+
+- NVIDIA GPU with CUDA support (recommended)
 - Git
 
 ### Installation
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/Bharath-gr11/stroke-classification-system.git
-    cd stroke-classification-system
+    git clone https://github.com/Bharath-revankar/Stroke_Classification_vit.git
+    cd Stroke_Classification_vit
     ```
 
-2.  **Create a virtual environment (recommended):**
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
-    ```
-
-3.  **Install the required packages:**
+2.  **Install the required Python packages:**
     ```bash
     pip install -r requirements.txt
     ```
 
-## Usage
+### Running the Application
 
-### Data Structure
-
-The models expect a specific data structure, which is ignored by Git to avoid committing large files. You will need to provide your own data in the following structure:
-
-```
-.
-├── MRI_DATA/
-│   └── Stroke_classification/
-│       ├── Haemorrhagic/
-│       │   └── ... (images)
-│       ├── Ischemic/
-│       │   └── ... (images)
-│       └── Normal/
-│           └── ... (images)
-└── clinical_lab_data/
-    └── healthcare-dataset-stroke-data.csv
-```
-
-### Training the Models
-
-The trained model weights and the data preprocessor are included in the `models/` directory. However, if you wish to retrain the models with new data, you can run the training scripts.
-
-1.  **Train the Image Model:**
-    ```bash
-    python -m src.training.train_image_model
-    ```
-
-2.  **Train the Clinical Model:** (This also saves the necessary preprocessor object)
-    ```bash
-    python -m src.training.train_clinical_model
-    ```
-
-3.  **Train the Fusion Model:**
-    ```bash
-    python -m src.training.train_fusion_model
-    ```
-
-### Running the Prediction App
-
-To launch the interactive web interface, run the `app.py` script:
+To launch the Gradio web interface, run the following command in your terminal:
 
 ```bash
 python app.py
 ```
 
-This will start a local server. Open the URL provided in your terminal (usually `http://127.0.0.1:7860`) in a web browser to use the application.
+This will start a local web server. Open the provided URL in your browser to access the application. You can then upload an MRI image to get a classification result.
 
-## File Structure
+## Model Training
 
+The model was trained using the script `src/training/train_image_model_standalone.py`. This script handles data loading, augmentation, model fine-tuning, and saving the final weights.
+
+To retrain the model, you can run:
+```bash
+python src/training/train_image_model_standalone.py
 ```
-stroke-classification-system/
-├── app.py                  # Main Gradio application file
-├── generate_plots.py       # Script to generate performance charts
-├── requirements.txt        # Project dependencies
-├── .gitignore              # Files and directories to ignore
-├── assets/
-│   └── accuracy_chart.png  # Saved model performance chart
-├── models/                 # (Git-ignored) Saved model weights and preprocessors
-│   ├── image_model_weights.pth
-│   ├── clinical_model_weights.pth
-│   ├── clinical_data_preprocessor.joblib
-│   └── fusion_model_weights.pth
-└── src/
-    ├── data_preprocessing/ # Scripts for data loading and preprocessing
-    ├── models/             # Model architecture definitions
-    ├── prediction/         # Prediction logic
-    └── training/           # Model training scripts
-```
+Make sure the `MRI_DATA` directory is structured correctly before starting the training.
 
-## Contributing
+## Technologies Used
 
-Contributions are welcome! If you have suggestions for improvements, please open an issue or submit a pull request.
-
-1.  Fork the Project
-2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4.  Push to the Branch (`git push origin feature/AmazingFeature`)
-5.  Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+- **PyTorch**: The core deep learning framework.
+- **Timm (PyTorch Image Models)**: For instantiating the pre-trained Vision Transformer model.
+- **Gradio**: For building the interactive web demo.
+- **Scikit-learn**: For data splitting.
+- **Pillow**: For image processing.

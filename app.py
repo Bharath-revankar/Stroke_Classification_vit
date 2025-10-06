@@ -1,7 +1,14 @@
 import gradio as gr
-import pandas as pd
 import os
-from src.prediction.predict import predict_stroke
+from pathlib import Path
+import sys
+import tempfile
+
+# Add the project root to the Python path to allow imports from src
+project_root = Path(__file__).resolve().parent
+sys.path.append(str(project_root))
+
+from src.prediction.predict_image_only import predict_image_only
 
 # --- Helper function to define the Gradio UI and logic ---
 def create_gradio_app():
@@ -9,114 +16,117 @@ def create_gradio_app():
     Creates and launches the Gradio web interface for stroke prediction.
     """
     
-    def prediction_wrapper(image, gender, age, hypertension, heart_disease, ever_married, work_type, residence_type, avg_glucose_level, bmi, smoking_status):
+    # Custom CSS for styling the app
+    css = """
+    .gradio-container {
+        font-family: 'IBM Plex Sans', sans-serif;
+    }
+    .gr-button {
+        background-color: #007bff;
+        color: white;
+        border-radius: 8px;
+    }
+    .gr-button:hover {
+        background-color: #0056b3;
+    }
+    #app-title {
+        text-align: center;
+        font-size: 2.5em;
+        color: #333;
+    }
+    #app-subtitle {
+        text-align: center;
+        color: #555;
+        margin-bottom: 20px;
+    }
+    #footer {
+        text-align: center;
+        color: #888;
+        font-size: 0.9em;
+    }
+    """
+
+    def prediction_wrapper(image):
         """
         A wrapper function to handle inputs from Gradio, call the prediction
-        function, and format the output.
+        function, and format the output for two separate components.
         """
         if image is None:
             raise gr.Error("Please upload an MRI image.")
         
-        # Gradio passes the image as a PIL Image object, but our prediction function needs a file path.
-        # We'll save it to a temporary file.
-        temp_image_path = "temp_gradio_image.png"
-        image.save(temp_image_path)
-
-
-        # Create the clinical data dictionary from the form inputs
-        clinical_data = {
-            'gender': gender,
-            'age': age,
-            'hypertension': 1 if hypertension == 'Yes' else 0,
-            'heart_disease': 1 if heart_disease == 'Yes' else 0,
-            'ever_married': ever_married,
-            'work_type': work_type,
-            'Residence_type': residence_type,
-            'avg_glucose_level': avg_glucose_level,
-            'bmi': bmi,
-            'smoking_status': smoking_status
-        }
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+            image.save(tmp.name)
+            temp_image_path = tmp.name
 
         try:
-            # Call the actual prediction function
-            predicted_class, probabilities = predict_stroke(
-                image_path=temp_image_path,
-                clinical_data_row=clinical_data
-            )
+            result = predict_image_only(image_path=temp_image_path)
             
-            # Format the output for Gradio's Label component
-            return {label: float(prob) for label, prob in probabilities.items()}
+            if "error" in result:
+                raise gr.Error(result["error"])
+
+            predicted_class = result['predicted_class']
+            probabilities = {label: float(prob) for label, prob in result['probabilities'].items()}
+            
+            # Return the main prediction and the full probability distribution
+            return f"The model predicts: **{predicted_class}**", probabilities
 
         except (FileNotFoundError, ValueError, RuntimeError) as e:
-            # Gracefully handle errors and show them in the UI
             raise gr.Error(str(e))
         finally:
-            # Clean up the temporary file
             if os.path.exists(temp_image_path):
                 os.remove(temp_image_path)
 
     # --- Define the Gradio Interface Components ---
-    with gr.Blocks(theme=gr.themes.Soft(), title="Stroke-Vs") as app:
-        gr.Markdown("# Stroke-Vs: Multimodal Stroke Classification")
-        gr.Markdown("Upload an MRI image and enter the patient's clinical data to predict the stroke type.")
+    with gr.Blocks(theme=gr.themes.Glass(), css=css, title="Stroke-Vs") as app:
+        gr.Markdown("# Stroke-Vs: AI-Powered Stroke Classification", elem_id="app-title")
+        gr.Markdown("Upload a brain MRI scan to predict the stroke type (Haemorrhagic, Ischemic, or Normal).", elem_id="app-subtitle")
 
-        with gr.Row():
-            with gr.Column(scale=1):
-                gr.Markdown("### 1. MRI Image")
-                image_input = gr.Image(type="pil", label="MRI Scan")
-                
-                gr.Markdown("### 2. Clinical Data")
-                age_input = gr.Number(label="Age", value=60)
-                gender_input = gr.Radio(label="Gender", choices=["Male", "Female", "Other"], value="Female")
-                hypertension_input = gr.Radio(label="Hypertension", choices=["No", "Yes"], value="No")
-                heart_disease_input = gr.Radio(label="Heart Disease", choices=["No", "Yes"], value="No")
-                ever_married_input = gr.Radio(label="Ever Married", choices=["No", "Yes"], value="Yes")
-                work_type_input = gr.Dropdown(label="Work Type", choices=["Private", "Self-employed", "Govt_job", "children", "Never_worked"], value="Private")
-                residence_type_input = gr.Radio(label="Residence Type", choices=["Urban", "Rural"], value="Urban")
-                avg_glucose_level_input = gr.Number(label="Average Glucose Level", value=100.0)
-                bmi_input = gr.Number(label="BMI", value=28.0)
-                smoking_status_input = gr.Dropdown(label="Smoking Status", choices=["formerly smoked", "never smoked", "smokes", "Unknown"], value="never smoked")
+        with gr.Row(equal_height=True):
+            with gr.Column(scale=2):
+                gr.Markdown("### 1. Upload MRI Image")
+                image_input = gr.Image(type="pil", label="MRI Scan", height=400)
+                submit_button = gr.Button("Analyze Image", variant="primary")
 
             with gr.Column(scale=1):
-                gr.Markdown("### 3. Prediction Result")
-                label_output = gr.Label(label="Prediction", num_top_classes=3)
-                submit_button = gr.Button("Predict", variant="primary")
+                gr.Markdown("### 2. Prediction Result")
+                main_prediction_output = gr.Markdown(label="Main Prediction")
+                label_output = gr.Label(label="Confidence Score", num_top_classes=3)
+        
+        with gr.Accordion("Show Examples", open=False):
+            gr.Examples(
+                examples=[
+                    str(project_root / 'MRI_DATA' / 'Stroke_classification' / 'Ischemic' / 'Ellappan T2-12.jpg_Ischemic_10.png'),
+                    str(project_root / 'MRI_DATA' / 'Stroke_classification' / 'Haemorrhagic' / 'Balu T2-17.jpg_Hemo_10.png'),
+                    str(project_root / 'MRI_DATA' / 'Stroke_classification' / 'Normal' / 'Normal- (6).jpg')
+                ],
+                inputs=image_input,
+                # The outputs must match the number and type of outputs from the function
+                outputs=[main_prediction_output, label_output], 
+                fn=prediction_wrapper,
+                cache_examples=False
+            )
 
+        gr.Markdown("---", elem_id="footer")
+        gr.Markdown("Developed by Bharat", elem_id="footer")
+        
         # --- Connect the components to the prediction function ---
         submit_button.click(
             fn=prediction_wrapper,
-            inputs=[
-                image_input, gender_input, age_input, hypertension_input, heart_disease_input,
-                ever_married_input, work_type_input, residence_type_input,
-                avg_glucose_level_input, bmi_input, smoking_status_input
-            ],
-            outputs=label_output
+            inputs=[image_input],
+            outputs=[main_prediction_output, label_output]
         )
-        
-        gr.Markdown("---")
-        gr.Markdown("Developed by Bharat")
 
     return app
 
 # --- Main execution block ---
 if __name__ == "__main__":
     # Check for necessary model files before launching
-    required_files = [
-        'models/fusion_model_weights.pth',
-        'models/clinical_data_preprocessor.joblib',
-        'models/image_model_weights.pth',
-        'models/clinical_model_weights.pth'
-    ]
+    model_path = project_root / 'src' / 'prediction' / 'image_only_model_weights.pth'
     
-    missing_files = [f for f in required_files if not os.path.exists(f)]
-    
-    if missing_files:
-        print("--- ERROR: Cannot launch Gradio App ---")
-        print("The following required model files are missing:")
-        for f in missing_files:
-            print(f" - {f}")
-        print("\nPlease run the training scripts to generate these files before launching the app.")
+    if not model_path.exists():
+        print("Error: The required model file 'image_only_model_weights.pth' was not found.")
+        print("Please run the training script first: python -m src.training.train_image_model_standalone")
     else:
         print("All model files found. Launching Gradio app...")
-        gradio_app = create_gradio_app()
-        gradio_app.launch(share=True)
+        app = create_gradio_app()
+        app.launch(share=True)

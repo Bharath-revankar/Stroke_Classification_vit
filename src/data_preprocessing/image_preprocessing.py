@@ -3,29 +3,27 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 
-def get_image_transforms():
+def get_image_transforms(image_size=224):
     """
-    Returns a dictionary of transformations for training and validation.
+    Returns a dictionary of transforms for training and validation.
+    Includes more aggressive data augmentation for the training set.
     """
-    # Normalization parameters are standard for models pre-trained on ImageNet
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    
-    data_transforms = {
+    return {
         'train': transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.RandomResizedCrop(image_size, scale=(0.8, 1.0)),
             transforms.RandomHorizontalFlip(),
             transforms.RandomRotation(15),
-            transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+            transforms.RandomGrayscale(p=0.2),
             transforms.ToTensor(),
-            normalize
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ]),
         'val': transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.Resize((image_size, image_size)),
             transforms.ToTensor(),
-            normalize
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ]),
     }
-    return data_transforms
 
 def preprocess_image(image_path):
     """

@@ -59,10 +59,11 @@ def predict_stroke(image_path, clinical_data_row, model_dir='models/'):
     print("Loading and preprocessing image...")
     try:
         image = Image.open(image_path).convert('RGB')
-        # Use the 'val' transforms as we are in an inference phase
+        # CRITICAL FIX: Use the 'val' transforms from the training pipeline
+        # to ensure normalization is consistent with what the model was trained on.
         transforms = get_image_transforms()['val']
         image_tensor = transforms(image).unsqueeze(0).to(device)  # Add batch dimension
-        print("Image data processed.")
+        print("Image data processed correctly.")
     except Exception as e:
         raise RuntimeError(f"Error processing image: {e}")
 
@@ -90,9 +91,8 @@ def predict_stroke(image_path, clinical_data_row, model_dir='models/'):
         _, predicted_idx = torch.max(output, 1)
 
     # --- Map Prediction to Class Name ---
-    # This mapping depends on the ImageFolder structure during training.
-    # The standard order is alphabetical: 'Haemorrhagic', 'Ischemic', 'Normal'
-    class_names = ['Haemorrhagic', 'Ischemic', 'Normal']
+    # The standard order is alphabetical, which is how ImageFolder reads them.
+    class_names = sorted(['Haemorrhagic', 'Ischemic', 'Normal']) # Ensures correct order
     predicted_class = class_names[predicted_idx.item()]
     
     probs_dict = {class_names[i]: probabilities[0][i].item() for i in range(len(class_names))}
