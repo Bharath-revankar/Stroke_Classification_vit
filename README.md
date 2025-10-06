@@ -13,6 +13,16 @@ The project includes a user-friendly web interface built with Gradio for easy in
 - **Interactive Web UI**: A simple and intuitive interface powered by Gradio to upload an MRI scan and get an instant prediction.
 - **GPU Accelerated**: The training and prediction processes are optimized to run on NVIDIA GPUs using PyTorch with CUDA.
 
+## Model Performance
+
+The model demonstrates excellent performance, achieving a final validation accuracy of 99.19%. The training and validation accuracy progressed as follows over 20 epochs:
+
+![Accuracy Chart](accuracy_chart.png)
+
+The training and validation loss also decreased consistently, indicating successful learning without significant overfitting.
+
+![Loss Chart](loss_chart.png)
+
 ## Project Structure
 
 ```
